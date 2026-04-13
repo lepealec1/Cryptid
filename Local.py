@@ -73,9 +73,7 @@ for i in range(DEFAULT_PLAYERS):
         key=f"name_{i}"
     )
 
-
-st.warning(f"Legend: \n\n ⚪ Inactive Clue \n\n 🟢 True Clue \n\n 🔴 False Clue")
-
+st.warning("Legend:\n\n⚪ Inactive Clue\n🟢 True Clue\n🔴 False Clue")
 
 players = st.session_state.player_names
 
@@ -140,34 +138,13 @@ for player in players:
     with col2:
         hide_false = st.toggle("🚫 Hide false", key=f"hide_false_{player}")
 
-    left_rules = rules[::2]
-    right_rules = rules[1::2]
-
-    cols = st.columns([2, 2, 1])
+    cols = st.columns([3, 1])
 
     # -------------------------
-    # LEFT COLUMN
+    # SINGLE COLUMN RULES
     # -------------------------
     with cols[0]:
-        for rule in left_rules:
-            status = st.session_state.state[player][rule]
-
-            if (st.session_state.hide_all_inactive or hide_inactive) and status == "inactive":
-                continue
-            if (st.session_state.hide_all_false or hide_false) and status == "eliminated":
-                continue
-
-            icon = "⚪" if status == "inactive" else "🟢" if status == "active" else "🔴"
-
-            if st.button(f"{icon} {rule}", key=f"{player}_{rule}"):
-                st.session_state.state[player][rule] = cycle_state(status)
-                st.rerun()
-
-    # -------------------------
-    # RIGHT COLUMN
-    # -------------------------
-    with cols[1]:
-        for rule in right_rules:
+        for rule in rules:
             status = st.session_state.state[player][rule]
 
             if (st.session_state.hide_all_inactive or hide_inactive) and status == "inactive":
@@ -184,6 +161,6 @@ for player in players:
     # -------------------------
     # SOLVER OUTPUT
     # -------------------------
-    with cols[2]:
+    with cols[1]:
         st.write("🌍 Possible Terrains")
         st.write(" | ".join(solve_player(player)))
