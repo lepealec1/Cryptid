@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.title("🧩 Cryptid Tracker (Two-Column Clues)")
+st.title("🧩 Cryptid Tracker")
 
 # -------------------------
 # CONFIG
@@ -72,6 +72,10 @@ for i in range(DEFAULT_PLAYERS):
         value=st.session_state.player_names[i],
         key=f"name_{i}"
     )
+
+
+st.warning(f"Legend: \n\n ⚪ Inactive Clue \n\n 🟢 True Clue \n\n 🔴 False Clue")
+
 
 players = st.session_state.player_names
 
