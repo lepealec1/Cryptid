@@ -67,11 +67,13 @@ rules = [
     "Within 1 Swamp",
     "Within 1 Mountain",
     "Within 1 animal",
-    "Within 2 bear",
-    "Within 2 cougar",
-    "Within 2 stone",
-    "Within 2 shack",
-    "Within 3 colored structures"
+    "Within 2 bear (black)",
+    "Within 2 cougar (red)",
+    "Within 2 of a standing stone ⬡",
+    "Within 2 of an abandoned shack △",
+    "Within 3 of a blue structure structure ⬡ or △",
+    "Within 3 of a white structure structure ⬡ or △",
+    "Within 3 of a green structure structure ⬡ or △"
 ]
 
 terrains = ["Forest", "Desert", "Water", "Swamp", "Mountain"]
