@@ -1,55 +1,14 @@
 import streamlit as st
 
-st.title("🧩 Cryptid Tracker (Advanced Visibility Controls)")
+st.title("🧩 Cryptid Tracker (Two-Column Clues)")
 
 # -------------------------
 # CONFIG
 # -------------------------
 DEFAULT_PLAYERS = 4
 
-# -------------------------
-# GLOBAL TOGGLES (TOP OF APP)
-# -------------------------
-if "hide_all_inactive" not in st.session_state:
-    st.session_state.hide_all_inactive = False
+terrains = ["Forest", "Desert", "Water", "Swamp", "Mountain"]
 
-if "hide_all_false" not in st.session_state:
-    st.session_state.hide_all_false = False
-
-colg1, colg2 = st.columns(2)
-
-with colg1:
-    st.session_state.hide_all_inactive = st.toggle(
-        "🙈 Hide ALL inactive clues",
-        value=st.session_state.hide_all_inactive
-    )
-
-with colg2:
-    st.session_state.hide_all_false = st.toggle(
-        "🚫 Hide ALL false (eliminated) clues",
-        value=st.session_state.hide_all_false
-    )
-
-# -------------------------
-# PLAYER NAMES
-# -------------------------
-if "player_names" not in st.session_state:
-    st.session_state.player_names = [f"Player {i+1}" for i in range(DEFAULT_PLAYERS)]
-
-st.subheader("✏️ Rename Players")
-
-for i in range(DEFAULT_PLAYERS):
-    st.session_state.player_names[i] = st.text_input(
-        f"Player {i+1}",
-        value=st.session_state.player_names[i],
-        key=f"name_{i}"
-    )
-
-players = st.session_state.player_names
-
-# -------------------------
-# RULES
-# -------------------------
 rules = [
     "Forest or Desert",
     "Forest or Water",
@@ -71,20 +30,57 @@ rules = [
     "Within 2 cougar (red)",
     "Within 2 of a standing stone ⬡",
     "Within 2 of an abandoned shack △",
-    "Within 3 of a blue structure structure ⬡ or △",
-    "Within 3 of a white structure structure ⬡ or △",
-    "Within 3 of a green structure structure ⬡ or △"
+    "Within 3 of a blue structure ⬡ or △",
+    "Within 3 of a white structure ⬡ or △",
+    "Within 3 of a green structure ⬡ or △"
 ]
 
-terrains = ["Forest", "Desert", "Water", "Swamp", "Mountain"]
+# -------------------------
+# GLOBAL TOGGLES
+# -------------------------
+if "hide_all_inactive" not in st.session_state:
+    st.session_state.hide_all_inactive = False
+
+if "hide_all_false" not in st.session_state:
+    st.session_state.hide_all_false = False
+
+colg1, colg2 = st.columns(2)
+
+with colg1:
+    st.session_state.hide_all_inactive = st.toggle(
+        "🙈 Hide ALL inactive clues",
+        value=st.session_state.hide_all_inactive
+    )
+
+with colg2:
+    st.session_state.hide_all_false = st.toggle(
+        "🚫 Hide ALL false clues",
+        value=st.session_state.hide_all_false
+    )
+
+# -------------------------
+# PLAYERS
+# -------------------------
+if "player_names" not in st.session_state:
+    st.session_state.player_names = [f"Player {i+1}" for i in range(DEFAULT_PLAYERS)]
+
+st.subheader("✏️ Rename Players")
+
+for i in range(DEFAULT_PLAYERS):
+    st.session_state.player_names[i] = st.text_input(
+        f"Player {i+1}",
+        value=st.session_state.player_names[i],
+        key=f"name_{i}"
+    )
+
+players = st.session_state.player_names
 
 # -------------------------
 # STATE
 # -------------------------
 if "state" not in st.session_state:
     st.session_state.state = {
-        f"Player {i+1}": {r: "inactive" for r in rules}
-        for i in range(DEFAULT_PLAYERS)
+        p: {r: "inactive" for r in rules} for p in players
     }
 
 for p in players:
@@ -94,10 +90,10 @@ for p in players:
 # -------------------------
 # STATE CYCLE
 # -------------------------
-def cycle_state(current):
-    if current == "inactive":
+def cycle_state(s):
+    if s == "inactive":
         return "active"
-    if current == "active":
+    if s == "active":
         return "eliminated"
     return "inactive"
 
@@ -111,18 +107,18 @@ def solve_player(player):
 
     for rule, status in state.items():
 
-        if status == "eliminated":
-            if " or " in rule:
-                a, b = rule.split(" or ")
-                possible.discard(a.strip())
-                possible.discard(b.strip())
+        if " or " not in rule:
             continue
 
-        elif status == "active":
-            if " or " in rule:
-                a, b = rule.split(" or ")
-                possible &= {a.strip(), b.strip()}
-            continue
+        a, b = rule.split(" or ")
+        a, b = a.strip(), b.strip()
+
+        if status == "active":
+            possible &= {a, b}
+
+        elif status == "eliminated":
+            possible.discard(a)
+            possible.discard(b)
 
     return sorted(possible)
 
@@ -132,49 +128,58 @@ def solve_player(player):
 for player in players:
     st.subheader(player)
 
-    # PER PLAYER TOGGLES
     col1, col2 = st.columns(2)
 
     with col1:
-        hide_inactive = st.toggle(
-            f"🙈 Hide inactive clues ({player})",
-            key=f"hide_inactive_{player}"
-        )
+        hide_inactive = st.toggle("🙈 Hide inactive", key=f"hide_inactive_{player}")
 
     with col2:
-        hide_false = st.toggle(
-            f"🚫 Hide false clues ({player})",
-            key=f"hide_false_{player}"
-        )
+        hide_false = st.toggle("🚫 Hide false", key=f"hide_false_{player}")
 
-    cols = st.columns([2, 1])
+    left_rules = rules[::2]
+    right_rules = rules[1::2]
 
+    cols = st.columns([2, 2, 1])
+
+    # -------------------------
+    # LEFT COLUMN
+    # -------------------------
     with cols[0]:
-        for rule in rules:
+        for rule in left_rules:
+            status = st.session_state.state[player][rule]
 
-            state = st.session_state.state[player][rule]
-
-            # -------------------------
-            # GLOBAL + LOCAL FILTER LOGIC
-            # -------------------------
-            if (st.session_state.hide_all_inactive or hide_inactive) and state == "inactive":
+            if (st.session_state.hide_all_inactive or hide_inactive) and status == "inactive":
+                continue
+            if (st.session_state.hide_all_false or hide_false) and status == "eliminated":
                 continue
 
-            if (st.session_state.hide_all_false or hide_false) and state == "eliminated":
-                continue
+            icon = "⚪" if status == "inactive" else "🟢" if status == "active" else "🔴"
 
-            icon = (
-                "⚪" if state == "inactive"
-                else "🟢" if state == "active"
-                else "🔴"
-            )
-
-            label = f"{icon} {rule}"
-
-            if st.button(label, key=f"{player}_{rule}"):
-                st.session_state.state[player][rule] = cycle_state(state)
+            if st.button(f"{icon} {rule}", key=f"{player}_{rule}"):
+                st.session_state.state[player][rule] = cycle_state(status)
                 st.rerun()
 
+    # -------------------------
+    # RIGHT COLUMN
+    # -------------------------
     with cols[1]:
+        for rule in right_rules:
+            status = st.session_state.state[player][rule]
+
+            if (st.session_state.hide_all_inactive or hide_inactive) and status == "inactive":
+                continue
+            if (st.session_state.hide_all_false or hide_false) and status == "eliminated":
+                continue
+
+            icon = "⚪" if status == "inactive" else "🟢" if status == "active" else "🔴"
+
+            if st.button(f"{icon} {rule}", key=f"{player}_{rule}"):
+                st.session_state.state[player][rule] = cycle_state(status)
+                st.rerun()
+
+    # -------------------------
+    # SOLVER OUTPUT
+    # -------------------------
+    with cols[2]:
         st.write("🌍 Possible Terrains")
         st.write(" | ".join(solve_player(player)))
