@@ -5,8 +5,6 @@ st.title("🧩 Cryptid Tracker")
 # -------------------------
 # CONFIG
 # -------------------------
-DEFAULT_PLAYERS = 4
-
 terrains = ["Forest", "Desert", "Water", "Swamp", "Mountain"]
 
 rules = [
@@ -36,6 +34,17 @@ rules = [
 ]
 
 # -------------------------
+# PLAYER COUNT
+# -------------------------
+num_players = st.number_input(
+    "👥 Number of players",
+    min_value=2,
+    max_value=5,
+    value=4,
+    step=1
+)
+
+# -------------------------
 # GLOBAL TOGGLES
 # -------------------------
 if "hide_all_inactive" not in st.session_state:
@@ -59,14 +68,26 @@ with colg2:
     )
 
 # -------------------------
-# PLAYERS
+# PLAYERS (DYNAMIC)
 # -------------------------
+def resize_list(lst, size, default_func):
+    lst = list(lst)
+    if len(lst) < size:
+        lst += [default_func(i) for i in range(len(lst), size)]
+    return lst[:size]
+
 if "player_names" not in st.session_state:
-    st.session_state.player_names = [f"Player {i+1}" for i in range(DEFAULT_PLAYERS)]
+    st.session_state.player_names = []
+
+st.session_state.player_names = resize_list(
+    st.session_state.player_names,
+    int(num_players),
+    lambda i: f"Player {i+1}"
+)
 
 st.subheader("✏️ Rename Players")
 
-for i in range(DEFAULT_PLAYERS):
+for i in range(int(num_players)):
     st.session_state.player_names[i] = st.text_input(
         f"Player {i+1}",
         value=st.session_state.player_names[i],
@@ -78,16 +99,22 @@ st.warning("Legend:\n\n⚪ Inactive Clue\n🟢 True Clue\n🔴 False Clue")
 players = st.session_state.player_names
 
 # -------------------------
-# STATE
+# STATE INIT
 # -------------------------
 if "state" not in st.session_state:
     st.session_state.state = {
         p: {r: "inactive" for r in rules} for p in players
     }
 
+# Add missing players
 for p in players:
     if p not in st.session_state.state:
         st.session_state.state[p] = {r: "inactive" for r in rules}
+
+# Remove deleted players
+for p in list(st.session_state.state.keys()):
+    if p not in players:
+        del st.session_state.state[p]
 
 # -------------------------
 # STATE CYCLE
@@ -141,7 +168,7 @@ for player in players:
     cols = st.columns([3, 1])
 
     # -------------------------
-    # SINGLE COLUMN RULES
+    # RULES
     # -------------------------
     with cols[0]:
         for rule in rules:
