@@ -7,7 +7,11 @@ st.title("🧩 Cryptid Tracker")
 # -------------------------
 terrains = ["Forest", "Desert", "Water", "Swamp", "Mountain"]
 
-terrain_rules = [f"{a} or {b}" for i, a in enumerate(terrains) for b in terrains[i+1:]]
+terrain_rules = [
+    f"{a} or {b}"
+    for i, a in enumerate(terrains)
+    for b in terrains[i + 1:]
+]
 
 other_rules = [
     "Within 1 Forest",
@@ -38,15 +42,14 @@ num_players = int(st.number_input("👥 Number of players", 2, 5, 4))
 st.session_state.setdefault("hide_all_inactive", False)
 st.session_state.setdefault("hide_all_eliminated", False)
 
-colg1, colg2 = st.columns(2)
-
-with colg1:
+c1, c2 = st.columns(2)
+with c1:
     st.session_state.hide_all_inactive = st.toggle(
         "🙈 Hide ALL inactive rules",
         value=st.session_state.hide_all_inactive
     )
 
-with colg2:
+with c2:
     st.session_state.hide_all_eliminated = st.toggle(
         "🚫 Hide ALL eliminated rules",
         value=st.session_state.hide_all_eliminated
@@ -80,10 +83,10 @@ for i in range(num_players):
 
 players = st.session_state.player_names[:num_players]
 
-st.warning("Legend:\n⚪ Unknown / Inactive\n🔴 False / Eliminated\n🟢 True")
+st.warning("⚪ Unknown / Inactive | 🔴 Eliminated | 🟢 Active")
 
 # -------------------------
-# STATE INIT (IMPORTANT FIX)
+# STATE INIT
 # -------------------------
 def init_state():
     if "terrain_state" not in st.session_state:
@@ -102,7 +105,7 @@ def init_state():
 init_state()
 
 # -------------------------
-# STATE CYCLE
+# CYCLE STATE
 # -------------------------
 def cycle(s):
     if s == "inactive":
@@ -112,7 +115,7 @@ def cycle(s):
     return "inactive"
 
 # -------------------------
-# MATRIX LOGIC
+# MATRIX CELL
 # -------------------------
 def get_cell(player, t1, t2):
     s1 = st.session_state.terrain_state[player][t1]
@@ -140,8 +143,7 @@ def solve(player):
         if " or " not in rule:
             continue
 
-        a, b = rule.split(" or ")
-        a, b = a.strip(), b.strip()
+        a, b = [x.strip() for x in rule.split(" or ")]
 
         if s == "active":
             possible &= {a, b}
@@ -152,72 +154,65 @@ def solve(player):
     return sorted(possible)
 
 # -------------------------
-# UI PER PLAYER
+# PLAYER UI (SINGLE COLUMN)
 # -------------------------
 for player in players:
-
     st.subheader(player)
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        hide_inactive = st.toggle("🙈 Hide inactive", key=f"hi_{player}")
-
-    with col2:
-        hide_eliminated = st.toggle("🚫 Hide eliminated", key=f"he_{player}")
-
-    cols = st.columns([2, 3])
+    hide_inactive = st.toggle("🙈 Hide inactive", key=f"hi_{player}")
+    hide_eliminated = st.toggle("🚫 Hide eliminated", key=f"he_{player}")
 
     # -------------------------
-    # INPUTS
+    # TERRAIN BUTTONS
     # -------------------------
-    with cols[0]:
-        st.write("🎯 Terrain")
+    st.write("🎯 Terrain")
 
-        for t in terrains:
-            s = st.session_state.terrain_state[player][t]
-            icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
+    for t in terrains:
+        s = st.session_state.terrain_state[player][t]
+        icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
 
-            if st.button(f"{icon} {t}", key=f"{player}_t_{t}"):
-                st.session_state.terrain_state[player][t] = cycle(s)
-                st.rerun()
-
-        st.write("---")
-        st.write("📋 Other Clues")
-
-        for rule in other_rules:
-            s = st.session_state.rule_state[player][rule]
-
-            if (st.session_state.hide_all_inactive or hide_inactive) and s == "inactive":
-                continue
-            if (st.session_state.hide_all_eliminated or hide_eliminated) and s == "eliminated":
-                continue
-
-            icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
-
-            if st.button(f"{icon} {rule}", key=f"{player}_r_{rule}"):
-                st.session_state.rule_state[player][rule] = cycle(s)
-                st.rerun()
+        if st.button(f"{icon} {t}", key=f"{player}_t_{t}"):
+            st.session_state.terrain_state[player][t] = cycle(s)
+            st.rerun()
 
     # -------------------------
-    # MOBILE-FRIENDLY MATRIX (FIXED)
+    # MATRIX (FIRST)
     # -------------------------
-    with cols[1]:
-        st.write("🌍 Terrain Matrix")
+    st.write("🌍 Terrain Matrix")
 
-        header = "|     | " + " | ".join(t[:3] for t in terrains) + " |"
-        divider = "|" + "----|" * (len(terrains) + 1)
+    header = "|     | " + " | ".join(t[:3] for t in terrains) + " |"
+    divider = "|" + "----|" * (len(terrains) + 1)
 
-        rows = []
-        for t1 in terrains:
-            row = [t1[:3]]
-            for t2 in terrains:
-                row.append(get_cell(player, t1, t2))
-            rows.append("| " + " | ".join(row) + " |")
+    rows = []
+    for t1 in terrains:
+        row = [t1[:3]]
+        for t2 in terrains:
+            row.append(get_cell(player, t1, t2))
+        rows.append("| " + " | ".join(row) + " |")
 
-        table = "\n".join([header, divider] + rows)
+    table = "\n".join([header, divider] + rows)
+    st.markdown(table)
 
-        st.markdown(table)
+    # -------------------------
+    # OTHER RULES (AFTER MATRIX)
+    # -------------------------
+    st.write("📋 Other Clues")
 
-        possible = solve(player)
-        st.write("🧠 Possible:", ", ".join(possible) if possible else "None")
+    for rule in other_rules:
+        s = st.session_state.rule_state[player][rule]
+
+        if (st.session_state.hide_all_inactive or hide_inactive) and s == "inactive":
+            continue
+        if (st.session_state.hide_all_eliminated or hide_eliminated) and s == "eliminated":
+            continue
+
+        icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
+
+        if st.button(f"{icon} {rule}", key=f"{player}_r_{rule}"):
+            st.session_state.rule_state[player][rule] = cycle(s)
+            st.rerun()
+
+    # -------------------------
+    # POSSIBLE RESULTS
+    # -------------------------
+    
