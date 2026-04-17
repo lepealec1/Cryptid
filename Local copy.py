@@ -30,13 +30,16 @@ rules = terrain_rules + other_rules
 # -------------------------
 # PLAYER COUNT
 # -------------------------
-num_players = int(st.number_input("👥 Number of players", 2, 5, 4))
+num_players = st.number_input("👥 Number of players", 2, 5, 4)
 
 # -------------------------
 # GLOBAL TOGGLES
 # -------------------------
-st.session_state.setdefault("hide_all_inactive", False)
-st.session_state.setdefault("hide_all_eliminated", False)
+if "hide_all_inactive" not in st.session_state:
+    st.session_state.hide_all_inactive = False
+
+if "hide_all_eliminated" not in st.session_state:
+    st.session_state.hide_all_eliminated = False
 
 colg1, colg2 = st.columns(2)
 
@@ -61,55 +64,46 @@ def resize_list(lst, size, default_func):
         lst += [default_func(i) for i in range(len(lst), size)]
     return lst[:size]
 
-st.session_state.setdefault("player_names", [])
+if "player_names" not in st.session_state:
+    st.session_state.player_names = []
 
 st.session_state.player_names = resize_list(
     st.session_state.player_names,
-    num_players,
+    int(num_players),
     lambda i: f"Player {i+1}"
 )
 
 st.subheader("✏️ Rename Players")
 
-for i in range(num_players):
+for i in range(int(num_players)):
     st.session_state.player_names[i] = st.text_input(
         f"Player {i+1}",
         value=st.session_state.player_names[i],
         key=f"name_{i}"
     )
 
-players = st.session_state.player_names[:num_players]
+players = st.session_state.player_names
 
-st.warning("Legend:\n⚪ Unknown / Inactive\n🔴 False / Eliminated\n🟢 True")
+st.warning("Legend:\n\n⚪ Unknown / Inactive\n🔴 False / Eliminated\n🟢 True")
 
 # -------------------------
-# STATE INIT (IMPORTANT FIX)
+# STATE INIT
 # -------------------------
-def init_state():
-    if "terrain_state" not in st.session_state:
-        st.session_state.terrain_state = {}
+if "terrain_state" not in st.session_state:
+    st.session_state.terrain_state = {
+        p: {t: "inactive" for t in terrains} for p in players
+    }
 
-    if "rule_state" not in st.session_state:
-        st.session_state.rule_state = {}
-
-    for p in players:
-        if p not in st.session_state.terrain_state:
-            st.session_state.terrain_state[p] = {t: "inactive" for t in terrains}
-
-        if p not in st.session_state.rule_state:
-            st.session_state.rule_state[p] = {r: "inactive" for r in rules}
-
-init_state()
+if "rule_state" not in st.session_state:
+    st.session_state.rule_state = {
+        p: {r: "inactive" for r in rules} for p in players
+    }
 
 # -------------------------
 # STATE CYCLE
 # -------------------------
 def cycle(s):
-    if s == "inactive":
-        return "eliminated"
-    if s == "eliminated":
-        return "active"
-    return "inactive"
+    return "eliminated" if s == "inactive" else "active" if s == "eliminated" else "inactive"
 
 # -------------------------
 # MATRIX LOGIC
@@ -130,12 +124,14 @@ def get_cell(player, t1, t2):
 def solve(player):
     possible = set(terrains)
 
+    # terrain filters
     for t, s in st.session_state.terrain_state[player].items():
         if s == "active":
             possible = {t}
         elif s == "eliminated":
             possible.discard(t)
 
+    # rule filters
     for rule, s in st.session_state.rule_state[player].items():
         if " or " not in rule:
             continue
@@ -152,10 +148,9 @@ def solve(player):
     return sorted(possible)
 
 # -------------------------
-# UI PER PLAYER
+# UI
 # -------------------------
 for player in players:
-
     st.subheader(player)
 
     col1, col2 = st.columns(2)
@@ -200,24 +195,21 @@ for player in players:
                 st.rerun()
 
     # -------------------------
-    # MOBILE-FRIENDLY MATRIX (FIXED)
+    # MATRIX + OUTPUT
     # -------------------------
     with cols[1]:
         st.write("🌍 Terrain Matrix")
 
-        header = "|     | " + " | ".join(t[:3] for t in terrains) + " |"
-        divider = "|" + "----|" * (len(terrains) + 1)
+        header = st.columns(len(terrains) + 1)
+        header[0].write("")
+        for i, t in enumerate(terrains):
+            header[i + 1].markdown(f"**{t[:3]}**")
 
-        rows = []
         for t1 in terrains:
-            row = [t1[:3]]
-            for t2 in terrains:
-                row.append(get_cell(player, t1, t2))
-            rows.append("| " + " | ".join(row) + " |")
+            row = st.columns(len(terrains) + 1)
+            row[0].markdown(f"**{t1[:3]}**")
 
-        table = "\n".join([header, divider] + rows)
-
-        st.markdown(table)
+            for j, t2 in enumerate(terrains):
+                row[j + 1].markdown(get_cell(player, t1, t2))
 
         possible = solve(player)
-        st.write("🧠 Possible:", ", ".join(possible) if possible else "None")
