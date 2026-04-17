@@ -7,6 +7,14 @@ st.title("🧩 Cryptid Tracker")
 # -------------------------
 terrains = ["Forest", "Desert", "Water", "Swamp", "Mountain"]
 
+terrain_icons = {
+    "Forest": "🟢",
+    "Desert": "🟡",
+    "Water": "🔵",
+    "Swamp": "🟣",
+    "Mountain": "⚪"
+}
+
 terrain_rules = [
     f"{a} or {b}"
     for i, a in enumerate(terrains)
@@ -32,6 +40,71 @@ other_rules = [
 rules = terrain_rules + other_rules
 
 # -------------------------
+# HELPERS
+# -------------------------
+def format_rule(rule):
+    # terrain coloring
+    for t in terrains:
+        rule = rule.replace(
+            f"Within 1 {t}",
+            f"Within 1 {terrain_icons[t]} {t}"
+        )
+
+    # animals
+    rule = rule.replace("bear (black)", "🐻 bear (black)")
+    rule = rule.replace("cougar (red)", "🐆 cougar (red)")
+
+    # structures
+    rule = rule.replace("standing stone ⬡", "standing stone ⬡")
+    rule = rule.replace("abandoned shack △", "abandoned shack △")
+
+    rule = rule.replace("blue structure", "🔵 blue structure")
+    rule = rule.replace("white structure", "⚪ white structure")
+    rule = rule.replace("green structure", "🟢 green structure")
+
+    return rule
+
+def cycle(s):
+    if s == "inactive":
+        return "eliminated"
+    if s == "eliminated":
+        return "active"
+    return "inactive"
+
+def get_cell(player, t1, t2):
+    s1 = st.session_state.terrain_state[player][t1]
+    s2 = st.session_state.terrain_state[player][t2]
+
+    if s1 == "eliminated" or s2 == "eliminated":
+        return "🔴"
+    if s1 == "active" or s2 == "active":
+        return "🟢"
+    return "⚪"
+
+def solve(player):
+    possible = set(terrains)
+
+    for t, s in st.session_state.terrain_state[player].items():
+        if s == "active":
+            possible = {t}
+        elif s == "eliminated":
+            possible.discard(t)
+
+    for rule, s in st.session_state.rule_state[player].items():
+        if " or " not in rule:
+            continue
+
+        a, b = [x.strip() for x in rule.split(" or ")]
+
+        if s == "active":
+            possible &= {a, b}
+        elif s == "eliminated":
+            possible.discard(a)
+            possible.discard(b)
+
+    return sorted(possible)
+
+# -------------------------
 # PLAYER COUNT
 # -------------------------
 num_players = int(st.number_input("👥 Number of players", 2, 5, 4))
@@ -43,6 +116,7 @@ st.session_state.setdefault("hide_all_inactive", False)
 st.session_state.setdefault("hide_all_eliminated", False)
 
 c1, c2 = st.columns(2)
+
 with c1:
     st.session_state.hide_all_inactive = st.toggle(
         "🙈 Hide ALL inactive rules",
@@ -83,7 +157,7 @@ for i in range(num_players):
 
 players = st.session_state.player_names[:num_players]
 
-st.warning("⚪ Unknown / Inactive | 🔴 Eliminated | 🟢 Active")
+st.warning("⚪ Unknown | 🔴 Eliminated | 🟢 Active")
 
 # -------------------------
 # STATE INIT
@@ -105,56 +179,7 @@ def init_state():
 init_state()
 
 # -------------------------
-# CYCLE STATE
-# -------------------------
-def cycle(s):
-    if s == "inactive":
-        return "eliminated"
-    if s == "eliminated":
-        return "active"
-    return "inactive"
-
-# -------------------------
-# MATRIX CELL
-# -------------------------
-def get_cell(player, t1, t2):
-    s1 = st.session_state.terrain_state[player][t1]
-    s2 = st.session_state.terrain_state[player][t2]
-
-    if s1 == "eliminated" or s2 == "eliminated":
-        return "🔴"
-    if s1 == "active" or s2 == "active":
-        return "🟢"
-    return "⚪"
-
-# -------------------------
-# SOLVER
-# -------------------------
-def solve(player):
-    possible = set(terrains)
-
-    for t, s in st.session_state.terrain_state[player].items():
-        if s == "active":
-            possible = {t}
-        elif s == "eliminated":
-            possible.discard(t)
-
-    for rule, s in st.session_state.rule_state[player].items():
-        if " or " not in rule:
-            continue
-
-        a, b = [x.strip() for x in rule.split(" or ")]
-
-        if s == "active":
-            possible &= {a, b}
-        elif s == "eliminated":
-            possible.discard(a)
-            possible.discard(b)
-
-    return sorted(possible)
-
-# -------------------------
-# PLAYER UI (SINGLE COLUMN)
+# PLAYER UI
 # -------------------------
 for player in players:
     st.subheader(player)
@@ -169,50 +194,48 @@ for player in players:
 
     for t in terrains:
         s = st.session_state.terrain_state[player][t]
-        icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
 
-        if st.button(f"{icon} {t}", key=f"{player}_t_{t}"):
+        state_icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
+        terrain_icon = terrain_icons[t]
+
+        if st.button(f"{state_icon} {t} {terrain_icon}", key=f"{player}_t_{t}"):
             st.session_state.terrain_state[player][t] = cycle(s)
             st.rerun()
 
     # -------------------------
-    # MATRIX (FIRST)
+    # MATRIX
     # -------------------------
     st.write("🌍 Terrain Matrix")
 
-    header = "|     | " + " | ".join(t[:3] for t in terrains) + " |"
+    header = "|     | " + " | ".join(f"{terrain_icons[t]} {t[:3]}" for t in terrains) + " |"
     divider = "|" + "----|" * (len(terrains) + 1)
 
     rows = []
     for t1 in terrains:
-        row = [t1[:3]]
+        row = [f"{terrain_icons[t1]} {t1[:3]}"]
         for t2 in terrains:
             row.append(get_cell(player, t1, t2))
         rows.append("| " + " | ".join(row) + " |")
 
-    table = "\n".join([header, divider] + rows)
-    st.markdown(table)
+    st.markdown("\n".join([header, divider] + rows))
 
     # -------------------------
-    # OTHER RULES (AFTER MATRIX)
+    # OTHER RULES
     # -------------------------
     st.write("📋 Other Clues")
 
     for rule in other_rules:
         s = st.session_state.rule_state[player][rule]
 
+        display_rule = format_rule(rule)
+
         if (st.session_state.hide_all_inactive or hide_inactive) and s == "inactive":
             continue
         if (st.session_state.hide_all_eliminated or hide_eliminated) and s == "eliminated":
             continue
 
-        icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
+        state_icon = "⚪" if s == "inactive" else "🔴" if s == "eliminated" else "🟢"
 
-        if st.button(f"{icon} {rule}", key=f"{player}_r_{rule}"):
+        if st.button(f"{state_icon} {display_rule}", key=f"{player}_r_{rule}"):
             st.session_state.rule_state[player][rule] = cycle(s)
             st.rerun()
-
-    # -------------------------
-    # POSSIBLE RESULTS
-    # -------------------------
-    
